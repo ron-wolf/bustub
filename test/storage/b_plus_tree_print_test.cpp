@@ -17,14 +17,14 @@
 #include <iostream>
 
 #include "b_plus_tree_test_util.h"  // NOLINT
-#include "buffer/buffer_pool_manager_instance.h"
+#include "buffer/buffer_pool_manager.h"
 #include "common/logger.h"
 #include "gtest/gtest.h"
 #include "storage/index/b_plus_tree.h"
 
 namespace bustub {
 
-std::string UsageMessage() {
+std::string usageMessage() {
   std::string message =
       "Enter any of the following commands after the prompt > :\n"
       "\ti <k>  -- Insert <k> (int64_t) as both key and value).\n"
@@ -51,17 +51,17 @@ TEST(BptTreeTest, DISABLED_UnitTest) {
   int leaf_max_size;
   int internal_max_size;
 
-  std::cout << UsageMessage();
+  std::cout << usageMessage();
   std::cin >> leaf_max_size;
   std::cin >> internal_max_size;
 
   // create KeyComparator and index schema
-  std::string create_stmt = "a bigint";
-  Schema *key_schema = ParseCreateStatement(create_stmt);
+  std::string createStmt = "a bigint";
+  Schema *key_schema = ParseCreateStatement(createStmt);
   GenericComparator<8> comparator(key_schema);
 
   DiskManager *disk_manager = new DiskManager("test.db");
-  BufferPoolManager *bpm = new BufferPoolManagerInstance(100, disk_manager);
+  BufferPoolManager *bpm = new BufferPoolManager(100, disk_manager);
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
@@ -103,11 +103,11 @@ TEST(BptTreeTest, DISABLED_UnitTest) {
         tree.Draw(bpm, filename);
         break;
       case '?':
-        std::cout << UsageMessage();
+        std::cout << usageMessage();
         break;
       default:
         std::cin.ignore(256, '\n');
-        std::cout << UsageMessage();
+        std::cout << usageMessage();
         break;
     }
   }

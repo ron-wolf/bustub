@@ -6,7 +6,7 @@
 //
 // Identification: src/include/buffer/lru_replacer.h
 //
-// Copyright (c) 2015-2021, Carnegie Mellon University Database Group
+// Copyright (c) 2015-2019, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,7 +22,7 @@
 namespace bustub {
 
 /**
- * LRUReplacer implements the Least Recently Used replacement policy.
+ * LRUReplacer implements the lru replacement policy, which approximates the Least Recently Used policy.
  */
 class LRUReplacer : public Replacer {
  public:

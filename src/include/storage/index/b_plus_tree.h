@@ -55,9 +55,9 @@ class BPlusTree {
   bool GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction = nullptr);
 
   // index iterator
-  INDEXITERATOR_TYPE Begin();
+  INDEXITERATOR_TYPE begin();
   INDEXITERATOR_TYPE Begin(const KeyType &key);
-  INDEXITERATOR_TYPE End();
+  INDEXITERATOR_TYPE end();
 
   void Print(BufferPoolManager *bpm) {
     ToString(reinterpret_cast<BPlusTreePage *>(bpm->FetchPage(root_page_id_)->GetData()), bpm);
