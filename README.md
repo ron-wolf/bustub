@@ -1,49 +1,19 @@
-<img src="logo/bustub.svg" alt="BusTub Logo" height="200">
+# Rutgers CS437 - Database System Implementation
 
------------------
 
-[![Build Status](https://travis-ci.org/cmu-db/bustub.svg?branch=master)](https://travis-ci.org/cmu-db/bustub)
-[![CircleCI](https://circleci.com/gh/cmu-db/bustub/tree/master.svg?style=svg)](https://circleci.com/gh/cmu-db/bustub/tree/master)
+## OVERVIEW
 
-BusTub is a relational database management system built at [Carnegie Mellon University](https://db.cs.cmu.edu) for the [Introduction to Database Systems](https://15445.courses.cs.cmu.edu) (15-445/645) course. This system was developed for educational purposes and should not be used in production environments.
+All the programming projects this semester will be written in C++. To ensure that you have the necessary C++ background, we are requiring everyone to complete a simple programming assignment to assess your knowledge of basic C++ features. You will not be given a grade for this project, but you are required to complete the project with a perfect result before being allowed to proceed in the course.
 
-**WARNING: IF YOU ARE A STUDENT IN THE CLASS, DO NOT DIRECTLY FORK THIS REPO. DO NOT PUSH PROJECT SOLUTIONS PUBLICLY. THIS IS AN ACADEMIC INTEGRITY VIOLATION AND CAN LEAD TO GETTING YOUR DEGREE REVOKED, EVEN AFTER YOU GRADUATE.**
+All of the code in this programming assignment must be written in C++ (specifically C++17). It is generally sufficient to know C++11. If you have not used C++ before, here is a [short tutorial](https://www.thegeekstuff.com/2016/02/c-plus-plus-11/) on the language. More detailed documentation of language internals is available on [cppreference](https://en.cppreference.com/w/). `A Tour of C++` and `Effective Modern C++` are also recommended books for leanring C++.
 
-## Cloning this repo
+There are many tutorials available to teach you how to use `gdb` effectively. Here are some that we have found useful:
 
-The following instructions will create a private BusTub that you can use for your development:
+- [Debugging Under Unix: gdb Tutorial](https://15445.courses.cs.cmu.edu/fall2020/project0/#:~:text=Debugging%20Under%20Unix%3A%20gdb%20Tutorial)
+- [GDB Tutorial: Advanced Debugging Tips For C/C++ Programmers](http://www.techbeamers.com/how-to-use-gdb-top-debugging-tips/)
+- [Give me 15 minutes & I'll change your view of GDB](https://www.youtube.com/watch?v=PorfLSr3DDI) [VIDEO]
 
-1. Go to [https://github.com/new](https://github.com/new) to create a new repo under your account. Pick a name (e.g. `private-bustub`) and make sure it is you select it as **private**.
-2. On your development machine, clone the public BusTub:
-   ```
-   $ git clone --depth 1 https://github.com/cmu-db/bustub.git public-bustub
-   ```
-3. You next need to [mirror](https://git-scm.com/docs/git-push#Documentation/git-push.txt---mirror) the public BusTub repo into your own private BusTub repo. Suppose your GitHub name is `student` and your repo name is `private-bustub`, you will execute the following commands:
-   ```
-   $ cd public-bustub
-   $ git push --mirror git@github.com:student/private-bustub.git
-   ```
-   This copies everything in the public BusTub repo into your own private repo. You can now delete this bustub directory:
-   ```
-   $ cd ..
-   $ rm -rv public-bustub
-   ```
-4. Clone your own private repo on:
-   ```
-   $ git clone git@github.com:student/private-bustub.git
-   ```
-5. Add the public BusTub as a remote source. This will allow you to retrieve changes from the CMU-DB repository during the semester:
-   ```
-   $ git remote add public https://github.com/cmu-db/bustub.git
-   ```
-6. You can now pull in changes from the public BusTub as needed:
-   ```
-   $ git pull public master
-   ```
-
-We suggest working on your projects in separate branches. If you do not understand how Git branches work, [learn how](https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging). If you fail to do this, you might lose all your work at some point in the semester, and nobody will be able to help you.
-
-## Build
+## SETTING UP YOUR DEVELOPMENT ENVIRONMENT
 
 ### Linux / Mac
 To ensure that you have the proper packages on your machine, run the following script to automatically install them:
@@ -71,59 +41,48 @@ $ make
 This enables [AddressSanitizer](https://github.com/google/sanitizers), which can generate false positives for overflow on STL containers. If you encounter this, define the environment variable `ASAN_OPTIONS=detect_container_overflow=0`.
 
 ### Windows
-If you are using Windows 10, you can use the Windows Subsystem for Linux (WSL) to develop, build, and test Bustub. All you need is to [Install WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10). You can just choose "Ubuntu" (no specific version) in Microsoft Store. Then, enter WSL and follow the above instructions.
+If you are using Windows 10, you can use the Windows Subsystem for Linux (WSL) to develop, build, and test project. All you need is to [Install WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10). You can just choose "Ubuntu" (no specific version) in Microsoft Store. Then, enter WSL and follow the above instructions.
 
 If you are using CLion, it also [works with WSL](https://blog.jetbrains.com/clion/2018/01/clion-and-linux-toolchain-on-windows-are-now-friends).
 
-## Testing
+## DEVELOPMENT HINTS
+
+Instead of using `printf` statements for debugging, use the `LOG_*` macros for logging information like this:
+
 ```
+LOG_INFO("# Pages: %d", num_pages);
+LOG_DEBUG("Fetching page %d", page_id);
+```
+
+To enable logging in your project, you will need to reconfigure it like this:
+
+```
+$ mkdir build
 $ cd build
-$ make check-tests
+$ cmake -DCMAKE_BUILD_TYPE=DEBUG ..
+$ make
 ```
 
-## Build environment
+The different logging levels are defined in `src/include/common/logger.h`. After enabling logging, the logging level defaults to `LOG_LEVEL_INFO`. Any logging method with a level that is equal to or higher than `LOG_LEVEL_INFO` (e.g., `LOG_INFO`, `LOG_WARN`, `LOG_ERROR`) will emit logging information. Note that you will need to add `#include "common/logger.h"` to any file that you want to use the logging infrastructure.
 
-If you have trouble getting cmake or make to run, an easy solution is to create a virtual container to build in. There are two options available:
+We encourage you to use **gdb** to debug your project if you are having problems.
 
-### Vagrant
-First, make sure you have Vagrant and Virtualbox installed
-```
-$ sudo apt update
-$ sudo apt install vagrant virtualbox
-```
+## GRADING RUBRIC
 
-From the repository directory, run this command to create and start a Vagrant box:
+In order to pass this project, you must ensure your code follows the following guidelines:
 
-```
-$ vagrant up
-```
+1. Does the submission successfully execute all of the test cases and produce the correct answer?
+1. Does the submission execute without any memory leaks?
+1. Does the submission follow the code formatting and style policies?
 
-This will start a Vagrant box running Ubuntu 20.02 in the background with all the packages needed. To access it, type
+Note that we will use additional test cases to grade your submission that are more complex than the sample test cases that we provide you.
 
-```
-$ vagrant ssh
-```
+## COLLABORATION POLICY
 
-to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
+Every student has to work individually on this assignment.
 
-### Docker
-First, make sure that you have docker installed:
-```
-$ sudo apt update
-$ sudo apt install docker
-```
+Students are allowed to discuss high-level details about the project with others.
 
-From the repository directory, run these commands to create a Docker image and container:
+Students are not allowed to copy the contents of a white-board after a group meeting with other students.
 
-```
-$ docker build . -t bustub
-$ docker create -t -i --name bustub -v $(pwd):/bustub bustub bash
-```
-
-This will create a Docker image and container. To run it, type:
-
-```
-$ docker start -a -i bustub
-```
-
-to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
+Students are not allowed to copy the solutions from another colleague.
