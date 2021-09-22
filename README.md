@@ -1,6 +1,5 @@
 # Rutgers CS437 - Database System Implementation
 
-
 ## OVERVIEW
 
 All the programming projects this semester will be written in C++. To ensure that you have the necessary C++ background, we are requiring everyone to complete a simple programming assignment to assess your knowledge of basic C++ features. You will not be given a grade for this project, but you are required to complete the project with a perfect result before being allowed to proceed in the course.
