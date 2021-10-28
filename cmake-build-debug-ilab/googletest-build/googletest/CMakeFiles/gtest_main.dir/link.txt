@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -g  -shared -Wl,-soname,libgtest_maind.so.1.11.0 -o ../../lib/libgtest_maind.so.1.11.0 CMakeFiles/gtest_main.dir/src/gtest_main.cc.o  -Wl,-rpath,/common/home/raw175/common/home/raw175/2021-10_DBSImpl_Proj1/cmake-build-debug-ilab/lib: ../../lib/libgtestd.so.1.11.0 -lpthread 

@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -g  -shared -Wl,-soname,libgmock_maind.so.1.11.0 -o ../../lib/libgmock_maind.so.1.11.0 CMakeFiles/gmock_main.dir/src/gmock_main.cc.o  -Wl,-rpath,/common/home/raw175/common/home/raw175/2021-10_DBSImpl_Proj1/cmake-build-debug-ilab/lib: ../../lib/libgmockd.so.1.11.0 ../../lib/libgtestd.so.1.11.0 -lpthread 
