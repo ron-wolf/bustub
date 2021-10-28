@@ -6,7 +6,9 @@ file(GLOB BUSTUB_TEST_SOURCES "${PROJECT_SOURCE_DIR}/test/*/*test.cpp")
 
 # valgrind
 find_program(VALGRIND_BIN valgrind)
-if ("${VALGRIND_BIN}" STREQUAL "VALGRIND_BIN-NOTFOUND")
+if (APPLE)
+    message(STATUS "BusTub/test skipping valgrind: crashes on Apple platforms")
+elseif ("${VALGRIND_BIN}" STREQUAL "VALGRIND_BIN-NOTFOUND")
     message(WARNING "BusTub/test couldn't find valgrind.")
 else()
     message(STATUS "BusTub/test found valgrind at ${VALGRIND_BIN}")
