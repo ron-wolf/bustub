@@ -17,7 +17,14 @@
 
 namespace bustub {
 
-#define BUSTUB_ASSERT(expr, message) assert((expr) && (message))
+#define BUSTUB_EXPECT(expr, message) assert((expr) && (message))
+
+#define BUSTUB_ASSERT(expr, message)   \
+  do {                                 \
+    if (! (expr)) {                    \
+      throw std::logic_error(message); \
+    }                                  \
+  } while (false)
 
 #define UNREACHABLE(message) throw std::logic_error(message)
 
