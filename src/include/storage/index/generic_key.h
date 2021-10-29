@@ -37,6 +37,7 @@ class GenericKey {
 
   // NOTE: for test purpose only
   inline void SetFromInteger(int64_t key) {
+    static_assert(KeySize >= sizeof(int64_t));
     memset(data_, 0, KeySize);
     memcpy(data_, &key, sizeof(int64_t));
   }
@@ -69,6 +70,13 @@ class GenericKey {
   // actual location of data, extends past the end.
   char data_[KeySize];
 };
+
+template <> // NOTE: this is a hack for "storage/index/b_plus_tree.cpp"
+inline void GenericKey<4>::SetFromInteger(int64_t key) {
+  int32_t key4 = static_cast<int32_t>(key);
+  memset(data_, 0, 4);
+  memcpy(data_, &key4, sizeof(int32_t));
+}
 
 /**
  * Function object returns true if lhs < rhs, used for trees
