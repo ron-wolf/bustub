@@ -12,12 +12,13 @@
 
 #pragma once
 
-#include <list>
-#include <mutex>  // NOLINT
-#include <vector>
-
 #include "buffer/replacer.h"
 #include "common/config.h"
+
+#include <cstddef>       // size_t
+#include <list>          // list<T>
+#include <shared_mutex>  // shared_mutex
+#include <unordered_map> // unordered_map<Key,T>
 
 namespace bustub {
 
@@ -46,7 +47,21 @@ class LRUReplacer : public Replacer {
   size_t Size() override;
 
  private:
-  // TODO(student): implement me!
+  /** a queue of unpinned frames, with eldest at the front */
+  std::list<frame_id_t> queue_;
+  /** a map from frames to queue positions */
+  std::unordered_map<frame_id_t, decltype(queue_)::iterator> locs_;
+
+  /** a mutex for read/write access to LRU data structures */
+  std::shared_mutex rw_lk_;
+  // this will be the core of the concurrency control. it is important
+  // to have just one mutex, since this will ensure we never forget
+  // to also lock for reading when we lock for writing
+  
+  /** a lock for shared, read-only access to LRU data structures */
+  std::shared_lock<std::shared_mutex> shr_lk_;
+  /** a lock for exclusive, read/write access to LRU data structures */
+  std::unique_lock<std::shared_mutex> exc_lk_;
 };
 
 }  // namespace bustub

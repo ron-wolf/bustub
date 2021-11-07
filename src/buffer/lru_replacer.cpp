@@ -12,9 +12,14 @@
 
 #include "buffer/lru_replacer.h"
 
+#include <mutex>   // scoped_lock<...MutexTypes>, defer_lock_t defer_lock
+
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages) {}
+LRUReplacer::LRUReplacer(size_t num_pages)
+  : locs_(num_pages)
+  , shr_lk_(rw_lk_, std::defer_lock)
+  , exc_lk_(rw_lk_, std::defer_lock) {}
 
 LRUReplacer::~LRUReplacer() = default;
 
