@@ -17,14 +17,12 @@ namespace bustub {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 KeyType HASH_TABLE_BLOCK_TYPE::KeyAt(slot_offset_t bucket_ind) const {
-  // TODO: complement the return value
-  return {};
+  return array_[bucket_ind].first;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 ValueType HASH_TABLE_BLOCK_TYPE::ValueAt(slot_offset_t bucket_ind) const {
-  // TODO: complement the return value
-  return {};
+  return array_[bucket_ind].second;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -51,8 +49,7 @@ bool HASH_TABLE_BLOCK_TYPE::IsOccupied(slot_offset_t bucket_ind) const {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BLOCK_TYPE::IsReadable(slot_offset_t bucket_ind) const {
-  // TODO: complement the return value
-  return false;
+  return (readable_[bucket_ind / 8] >> (7 - (bucket_ind % 8))) & 1;
 }
 
 // DO NOT REMOVE ANYTHING BELOW THIS LINE
