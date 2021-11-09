@@ -22,8 +22,7 @@ void TablePage::Init(page_id_t page_id, uint32_t page_size, page_id_t prev_page_
   memcpy(GetData(), &page_id, sizeof(page_id));
   // Log that we are creating a new page.
   if (enable_logging) {
-    LogRecord log_record =
-        LogRecord(txn->GetTransactionId(), txn->GetPrevLSN(), LogRecordType::NEWPAGE, prev_page_id, page_id);
+    LogRecord log_record = LogRecord(txn->GetTransactionId(), txn->GetPrevLSN(), LogRecordType::NEWPAGE, prev_page_id);
     lsn_t lsn = log_manager->AppendLogRecord(&log_record);
     SetLSN(lsn);
     txn->SetPrevLSN(lsn);
@@ -147,7 +146,7 @@ bool TablePage::UpdateTuple(const Tuple &new_tuple, Tuple *old_tuple, const RID 
     return false;
   }
   // If there is not enuogh space to update, we need to update via delete followed by an insert (not enough space).
-  if (GetFreeSpaceRemaining() + tuple_size < new_tuple.size_) {
+  if (GetFreeSpaceRemaining() < new_tuple.size_ - tuple_size) {
     return false;
   }
 
@@ -308,7 +307,7 @@ bool TablePage::GetTuple(const RID &rid, Tuple *tuple, Transaction *txn, LockMan
 bool TablePage::GetFirstTupleRid(RID *first_rid) {
   // Find and return the first valid tuple.
   for (uint32_t i = 0; i < GetTupleCount(); ++i) {
-    if (!IsDeleted(GetTupleSize(i))) {
+    if (GetTupleSize(i) > 0) {
       first_rid->Set(GetTablePageId(), i);
       return true;
     }
@@ -321,7 +320,7 @@ bool TablePage::GetNextTupleRid(const RID &cur_rid, RID *next_rid) {
   BUSTUB_ASSERT(cur_rid.GetPageId() == GetTablePageId(), "Wrong table!");
   // Find and return the first valid tuple after our current slot number.
   for (auto i = cur_rid.GetSlotNum() + 1; i < GetTupleCount(); ++i) {
-    if (!IsDeleted(GetTupleSize(i))) {
+    if (GetTupleSize(i) > 0) {
       next_rid->Set(GetTablePageId(), i);
       return true;
     }

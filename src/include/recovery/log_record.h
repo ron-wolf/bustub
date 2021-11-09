@@ -99,32 +99,23 @@ class LogRecord {
   }
 
   // constructor for NEWPAGE type
-  LogRecord(txn_id_t txn_id, lsn_t prev_lsn, LogRecordType log_record_type, page_id_t prev_page_id, page_id_t page_id)
+  LogRecord(txn_id_t txn_id, lsn_t prev_lsn, LogRecordType log_record_type, page_id_t page_id)
       : size_(HEADER_SIZE),
         txn_id_(txn_id),
         prev_lsn_(prev_lsn),
         log_record_type_(log_record_type),
-        prev_page_id_(prev_page_id),
-        page_id_(page_id) {
-    // calculate log record size, header size + sizeof(prev_page_id) + sizeof(page_id)
-    size_ = HEADER_SIZE + sizeof(page_id_t) * 2;
+        prev_page_id_(page_id) {
+    // calculate log record size
+    size_ = HEADER_SIZE + sizeof(page_id_t);
   }
 
   ~LogRecord() = default;
 
-  inline Tuple &GetDeleteTuple() { return delete_tuple_; }
-
   inline RID &GetDeleteRID() { return delete_rid_; }
 
-  inline Tuple &GetInsertTuple() { return insert_tuple_; }
+  inline Tuple &GetInserteTuple() { return insert_tuple_; }
 
   inline RID &GetInsertRID() { return insert_rid_; }
-
-  inline Tuple &GetOriginalTuple() { return old_tuple_; }
-
-  inline Tuple &GetUpdateTuple() { return new_tuple_; }
-
-  inline RID &GetUpdateRID() { return update_rid_; }
 
   inline page_id_t GetNewPageRecord() { return prev_page_id_; }
 
@@ -160,22 +151,21 @@ class LogRecord {
   lsn_t prev_lsn_{INVALID_LSN};
   LogRecordType log_record_type_{LogRecordType::INVALID};
 
-  // case1: for delete operation, delete_tuple_ for UNDO operation
+  // case1: for delete opeartion, delete_tuple_ for UNDO opeartion
   RID delete_rid_;
   Tuple delete_tuple_;
 
-  // case2: for insert operation
+  // case2: for insert opeartion
   RID insert_rid_;
   Tuple insert_tuple_;
 
-  // case3: for update operation
+  // case3: for update opeartion
   RID update_rid_;
   Tuple old_tuple_;
   Tuple new_tuple_;
 
-  // case4: for new page operation
+  // case4: for new page opeartion
   page_id_t prev_page_id_{INVALID_PAGE_ID};
-  page_id_t page_id_{INVALID_PAGE_ID};
   static const int HEADER_SIZE = 20;
 };  // namespace bustub
 

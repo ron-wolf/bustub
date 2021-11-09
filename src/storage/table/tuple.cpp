@@ -33,7 +33,6 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) : allocated_(true)
   // 2. Allocate memory.
   size_ = tuple_size;
   data_ = new char[size_];
-  std::memset(data_, 0, size_);
 
   // 3. Serialize each attribute based on the input value.
   uint32_t column_count = schema->GetColumnCount();
@@ -94,15 +93,6 @@ Value Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const {
   const char *data_ptr = GetDataPtr(schema, column_idx);
   // the third parameter "is_inlined" is unused
   return Value::DeserializeFrom(data_ptr, column_type);
-}
-
-Tuple Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs) {
-  std::vector<Value> values;
-  values.reserve(key_attrs.size());
-  for (auto idx : key_attrs) {
-    values.emplace_back(this->GetValue(&schema, idx));
-  }
-  return Tuple(values, &key_schema);
 }
 
 const char *Tuple::GetDataPtr(const Schema *schema, const uint32_t column_idx) const {

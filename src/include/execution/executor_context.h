@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include "catalog/catalog.h"
+#include "catalog/simple_catalog.h"
 #include "concurrency/transaction.h"
 #include "storage/page/tmp_tuple_page.h"
 
@@ -31,12 +31,9 @@ class ExecutorContext {
    * @param transaction the transaction executing the query
    * @param catalog the catalog that the executor should use
    * @param bpm the buffer pool manager that the executor should use
-   * @param txn_mgr the transaction manager that the executor should use
-   * @param lock_mgr the lock manager that the executor should use
    */
-  ExecutorContext(Transaction *transaction, Catalog *catalog, BufferPoolManager *bpm, TransactionManager *txn_mgr,
-                  LockManager *lock_mgr)
-      : transaction_(transaction), catalog_{catalog}, bpm_{bpm}, txn_mgr_(txn_mgr), lock_mgr_(lock_mgr) {}
+  ExecutorContext(Transaction *transaction, SimpleCatalog *catalog, BufferPoolManager *bpm)
+      : transaction_(transaction), catalog_{catalog}, bpm_{bpm} {}
 
   DISALLOW_COPY_AND_MOVE(ExecutorContext);
 
@@ -46,7 +43,7 @@ class ExecutorContext {
   Transaction *GetTransaction() const { return transaction_; }
 
   /** @return the catalog */
-  Catalog *GetCatalog() { return catalog_; }
+  SimpleCatalog *GetCatalog() { return catalog_; }
 
   /** @return the buffer pool manager */
   BufferPoolManager *GetBufferPoolManager() { return bpm_; }
@@ -54,18 +51,13 @@ class ExecutorContext {
   /** @return the log manager - don't worry about it for now */
   LogManager *GetLogManager() { return nullptr; }
 
-  /** @return the lock manager */
-  LockManager *GetLockManager() { return lock_mgr_; }
-
-  /** @return the transaction manager */
-  TransactionManager *GetTransactionManager() { return txn_mgr_; }
+  /** @return the lock manager - don't worry about it for now */
+  LockManager *GetLockManager() { return nullptr; }
 
  private:
   Transaction *transaction_;
-  Catalog *catalog_;
+  SimpleCatalog *catalog_;
   BufferPoolManager *bpm_;
-  TransactionManager *txn_mgr_;
-  LockManager *lock_mgr_;
 };
 
 }  // namespace bustub
