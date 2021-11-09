@@ -98,7 +98,7 @@ class LinearProbeHashTable : public HashTable<KeyType, ValueType, KeyComparator>
   BufferPoolManager *buffer_pool_manager_;
   KeyComparator comparator_;
 
-  // Readers includes inserts and removes, writer is only resize
+  // Reader includes inserts and removes, writer is only resize
   ReaderWriterLatch table_latch_;
 
   // Hash function

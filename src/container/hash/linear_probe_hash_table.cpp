@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -34,14 +35,12 @@ HASH_TABLE_TYPE::LinearProbeHashTable(const std::string &name,
   header_page_id_ = INVALID_PAGE_ID;
   auto header_page = reinterpret_cast<HashTableHeaderPage *>(
       buffer_pool_manager_->NewPage(&header_page_id_, nullptr)->GetData());
-  // TODO: complement the below line
-  header_page->SetPageId(/* here */);
+  header_page->SetPageId(header_page_id_);
 
   // ceiling of num_buckets/BLOCK_ARRAY_SIZE
   size_t num_blocks = (num_buckets - 1) / BLOCK_ARRAY_SIZE + 1;
 
-  // TODO: complement the below line
-  header_page->SetSize(/* here */);
+  header_page->SetSize(num_buckets);
 
   CreateNewBlockPages(header_page, num_blocks);
 
@@ -91,15 +90,18 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key,
   (reinterpret_cast<Page *>(block_page))->RLatch();
 
   bool found = false;
-  // TODO: finish the below empty
-  while (/* enter here */) {
-    if (/* enter here */) {
+  while (block_page->IsOccupied(bucket_ind)) {
+    if (block_page->IsReadable(bucket_ind) and 0 == comparator_(key, block_page->KeyAt(bucket_ind))) {
       found = true;
       result->push_back(block_page->ValueAt(bucket_ind));
     }
     if (++bucket_ind >= BLOCK_ARRAY_SIZE) {
       (reinterpret_cast<Page *>(block_page))->RUnlatch();
-      /* complete here */
+      // Perform linear probe
+      block = (block+1) % num_blocks;
+      block_page_id = header_page->GetBlockPageId(block);
+      block_page = GetBlockPage(block_page_id);
+      bucket_ind = 0;
       (reinterpret_cast<Page *>(block_page))->RLatch();
     }
     if (block == start_block && bucket_ind == start_bucket_ind) {
@@ -135,15 +137,17 @@ bool HASH_TABLE_TYPE::GetValueLatchFree(Transaction *transaction,
   HASH_TABLE_BLOCK_TYPE *block_page = GetBlockPage(block_page_id);
 
   bool found = false;
-  // TODO: finish the below empty, the same as GetValue() above.
-  while (/* enter here */) {
-    if (/* enter here */) {
+  while (block_page->IsOccupied(bucket_ind)) {
+    if (block_page->IsReadable(bucket_ind) and 0 == comparator_(key, block_page->KeyAt(bucket_ind))) {
       found = true;
       result->push_back(block_page->ValueAt(bucket_ind));
     }
     if (++bucket_ind >= BLOCK_ARRAY_SIZE) {
       // At the end of the block, loading a new one in
-      /* complete here */
+      block = (block+1) % num_blocks;
+      block_page_id = header_page->GetBlockPageId(block);
+      block_page = GetBlockPage(block_page_id);
+      bucket_ind = 0;
     }
     if (block == start_block && bucket_ind == start_bucket_ind) {
       break;
@@ -175,8 +179,14 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key,
   HASH_TABLE_BLOCK_TYPE *block_page = GetBlockPage(block_page_id);
   (reinterpret_cast<Page *>(block_page))->WLatch();
 
-  // TODO: check if (key, value) already exists.
-  //       If already exists, return false.
+  std::vector<ValueType> vals;
+  if (GetValueLatchFree(nullptr, key, &vals)) { // latch would require special-casing the first block
+    if (std::find(vals.begin(), vals.end(), value) != vals.end()) {
+      (reinterpret_cast<Page *>(block_page))->WUnlatch();
+      table_latch_.RUnlock();
+      return false;
+    }
+  }
 
   /*
    * complement here
@@ -186,23 +196,28 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key,
   size_t start_bucket_ind = bucket_ind;
   size_t start_block = block;
 
-  while (!block_page->Insert(bucket_ind, key, value)) {
+  while (not block_page->Insert(bucket_ind, key, value)) {
     bucket_ind++;
     if (bucket_ind >= BLOCK_ARRAY_SIZE) {
       // At the end of the block, loading a new one in
       (reinterpret_cast<Page *>(block_page))->WUnlatch();
-      /*
-       * complement here
-       */
+      block = (block+1) % num_blocks;
+      block_page_id = header_page->GetBlockPageId(block);
+      block_page = GetBlockPage(block_page_id);
+      bucket_ind = 0;
       (reinterpret_cast<Page *>(block_page))->WLatch();
 
-      // TODO: check if (key, value) already exists.
-      //       If already exists, return false.
-      //       Same as above
+      if (GetValueLatchFree(nullptr, key, &vals)) {
+        if (std::find(vals.begin(), vals.end(), value) != vals.end()) {
+          (reinterpret_cast<Page *>(block_page))->WUnlatch();
+          table_latch_.RUnlock();
+          return false;
+        }
+      }
 
-      /*
-       * complement here
-       */
+      if (block == start_block && bucket_ind == start_bucket_ind) {
+        break;
+      }
     }
 
     // TODO: If back to the starting point, resize
@@ -215,8 +230,9 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key,
     }
   }
   (reinterpret_cast<Page *>(block_page))->WUnlatch();
-  assert(buffer_pool_manager_->UnpinPage(block_page_id, true, nullptr));
-  assert(buffer_pool_manager_->UnpinPage(header_page_id_, false, nullptr));
+  [[maybe_unused]] bool success;
+  success = buffer_pool_manager_->UnpinPage(block_page_id, true, nullptr); assert(success);
+  success = buffer_pool_manager_->UnpinPage(header_page_id_, false, nullptr); assert(success);
 
   table_latch_.RUnlock();
 
@@ -247,6 +263,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::Resize_Insert(HashTableHeaderPage *header_page,
                                     const KeyType &key,
                                     const ValueType &value) {
+  // Table is write-locked before call
   uint64_t hash = hash_fn_.GetHash(key);
   size_t bucket = hash;
   bucket %= (header_page->GetSize());
@@ -257,17 +274,22 @@ void HASH_TABLE_TYPE::Resize_Insert(HashTableHeaderPage *header_page,
   page_id_t block_page_id = header_page->GetBlockPageId(block);
 
   HASH_TABLE_BLOCK_TYPE *block_page = GetBlockPage(block_page_id);
+  reinterpret_cast<Page *>(block_page)->WLatch(); // IDK: is this necessary?
 
   size_t bucket_ind = bucket % BLOCK_ARRAY_SIZE;
 
-  while (!block_page->Insert(bucket_ind, key, value)) {
+  while (not block_page->Insert(bucket_ind, key, value)) {
     if (++bucket_ind >= BLOCK_ARRAY_SIZE) {
       // At the end of the block, loading a new one in. Same as above.
-      /*
-       * complement here
-       */
+      (reinterpret_cast<Page *>(block_page))->WUnlatch();
+      block = (block+1) % num_blocks;
+      block_page_id = header_page->GetBlockPageId(block);
+      block_page = GetBlockPage(block_page_id);
+      bucket_ind = 0;
+      (reinterpret_cast<Page *>(block_page))->WLatch();
     }
   }
+  reinterpret_cast<Page *>(block_page)->WUnlatch();
   assert(buffer_pool_manager_->UnpinPage(block_page_id, true, nullptr));
 }
 
@@ -285,14 +307,12 @@ void HASH_TABLE_TYPE::DeleteBlockPages(HashTableHeaderPage *old_header_page) {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::CreateNewBlockPages(HashTableHeaderPage *header_page,
                                           size_t num_blocks) {
-  // TODO: create all the necessary blocks, and store page_ids in the header
-  // file
+  // TODO: create all the necessary blocks, and store page_ids in the header file
   for (size_t i = 0; i < num_blocks; i++) {
-    page_id_t new_block_page_id;
-    /*
-     * code here
-     */
-    assert(buffer_pool_manager_->UnpinPage(new_block_page_id, true, nullptr));
+    page_id_t new_block_page_id = INVALID_PAGE_ID;
+    Page *page = buffer_pool_manager_->NewPage(&new_block_page_id, nullptr); assert(page != nullptr);
+    GetHeaderPage()->AddBlockPageId(new_block_page_id);
+    [[maybe_unused]] bool success = buffer_pool_manager_->UnpinPage(new_block_page_id, true, nullptr); assert(success);
   }
 }
 
@@ -313,9 +333,10 @@ void HASH_TABLE_TYPE::Resize(size_t initial_size) {
   }
   size *= 2;
   auto new_header_page = reinterpret_cast<HashTableHeaderPage *>(
-      buffer_pool_manager_->NewPage(&header_page_id_, nullptr)->GetData());
+      buffer_pool_manager_->NewPage(&this->header_page_id_, nullptr)->GetData());
   new_header_page->SetPageId(header_page_id_);
   new_header_page->SetSize(size);
+  // no need to write-lock it, we're the only ones who know its page_id
 
   // ceiling of size/BLOCK_ARRAY_SIZE
   size_t num_blocks = (size - 1) / BLOCK_ARRAY_SIZE + 1;
@@ -323,6 +344,7 @@ void HASH_TABLE_TYPE::Resize(size_t initial_size) {
   CreateNewBlockPages(new_header_page, num_blocks);
   page_id_t block_page_id = old_header_page->GetBlockPageId(0);
   HASH_TABLE_BLOCK_TYPE *block_page = GetBlockPage(block_page_id);
+  reinterpret_cast<Page *>(block_page)->RLatch();
 
   size_t bucket_ind = 0;
   size_t block = 0;
@@ -330,27 +352,29 @@ void HASH_TABLE_TYPE::Resize(size_t initial_size) {
   // run through every index of the old hash table
   for (size_t bucket = 0; bucket < initial_size; bucket++) {
     if (block_page->IsReadable(bucket_ind)) {
-      // TODO: insert the new key,value using Resize_Insert().
-      /*
-       * complement here
-       */
+      Resize_Insert(new_header_page, block_page->KeyAt(bucket_ind), block_page->ValueAt(bucket_ind));
     }
 
     if (++bucket_ind >= BLOCK_ARRAY_SIZE) {
       // At the end of the block, loading a new one in. Same as above.
-      /*
-       * complement here
-       */
+      (reinterpret_cast<Page *>(block_page))->RUnlatch();
+      block = (block+1) % num_blocks;
+      block_page_id = old_header_page->GetBlockPageId(block);
+      block_page = GetBlockPage(block_page_id);
+      bucket_ind = 0;
+      (reinterpret_cast<Page *>(block_page))->RLatch();
     }
   }
 
-  assert(buffer_pool_manager_->UnpinPage(block_page_id, false, nullptr));
+  [[maybe_unused]] bool success;
+  success = buffer_pool_manager_->UnpinPage(block_page_id, false, nullptr); assert(success);
   DeleteBlockPages(old_header_page);
 
-  assert(buffer_pool_manager_->UnpinPage(header_page_id_, true, nullptr));
+  success = buffer_pool_manager_->UnpinPage(header_page_id_, true, nullptr); assert(success);
 
-  assert(buffer_pool_manager_->UnpinPage(old_header_page_id, false, nullptr));
-  if (!(buffer_pool_manager_->DeletePage(old_header_page_id, nullptr))) {
+  success = buffer_pool_manager_->UnpinPage(old_header_page_id, false, nullptr); assert(success);
+  success = buffer_pool_manager_->DeletePage(old_header_page_id, nullptr);
+  if (not success) {
     LOG_DEBUG("Old header page still pinned, page_id:%d", old_header_page_id);
   }
 
@@ -364,10 +388,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 size_t HASH_TABLE_TYPE::GetSize() {
   table_latch_.RLock();
   size_t size = 0;
-  // TODO: get header page size
-  /*
-   * complement here
-   */
+  size = GetHeaderPage()->GetSize();
   table_latch_.RUnlock();
   return size;
 }
