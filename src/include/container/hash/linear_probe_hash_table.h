@@ -87,6 +87,12 @@ class LinearProbeHashTable : public HashTable<KeyType, ValueType, KeyComparator>
   size_t GetSize();
 
  private:
+  HashTableHeaderPage *GetHeaderPage();
+  HASH_TABLE_BLOCK_TYPE *GetBlockPage(page_id_t block_page_id);
+  void Resize_Insert(HashTableHeaderPage *header_page, const KeyType &key, const ValueType &value);
+  void DeleteBlockPages(HashTableHeaderPage *old_header_page);
+  void CreateNewBlockPages(HashTableHeaderPage *header_page, size_t num_blocks);
+  bool GetValueLatchFree(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result);
   // member variable
   page_id_t header_page_id_;
   BufferPoolManager *buffer_pool_manager_;

@@ -12,6 +12,8 @@
 
 #include "storage/page/hash_table_header_page.h"
 
+// TODO: Complement all the return values.
+
 namespace bustub {
 page_id_t HashTableHeaderPage::GetBlockPageId(size_t index) { return 0; }
 

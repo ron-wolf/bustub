@@ -82,7 +82,7 @@ class HashTableHeaderPage {
    * @param index the index of the block
    * @return the page_id for the block.
    */
-  page_id_t GetBlockPageId(size_t index);
+  page_id_t GetBlockPageId(slot_offset_t index);
 
   /**
    * @return the number of blocks currently stored in the header page
@@ -90,11 +90,11 @@ class HashTableHeaderPage {
   size_t NumBlocks();
 
  private:
-  __attribute__((unused)) lsn_t lsn_;
-  __attribute__((unused)) size_t size_;
-  __attribute__((unused)) page_id_t page_id_;
-  __attribute__((unused)) size_t next_ind_;
-  __attribute__((unused)) page_id_t block_page_ids_[0];
+  lsn_t lsn_;
+  size_t size_;
+  page_id_t page_id_;
+  slot_offset_t next_ind_;
+  page_id_t block_page_ids_[0];
 };
 
 }  // namespace bustub
