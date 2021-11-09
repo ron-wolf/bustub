@@ -54,19 +54,40 @@ class SimpleCatalog {
    */
   TableMetadata *CreateTable(Transaction *txn, const std::string &table_name, const Schema &schema) {
     BUSTUB_ASSERT(names_.count(table_name) == 0, "Table names should be unique!");
-    return nullptr;
+    
+    page_id_t first_page_id = INVALID_PAGE_ID;
+    Page *p = bpm_->NewPage(&first_page_id, nullptr);
+    BUSTUB_ASSERT(p != nullptr, "The buffer pool should not run out of space"); // TODO: find if there is a better error here
+    
+    table_oid_t table_oid = next_table_oid_.fetch_add(1);
+    tables_.emplace(table_oid, std::make_unique<TableMetadata>(
+      schema,
+      table_name,
+      std::make_unique<TableHeap>(bpm_, lock_manager_, log_manager_, first_page_id),
+      table_oid
+    ));
+    names_.emplace(table_name, table_oid);
+    
+    TableMetadata *meta = GetTable(table_oid);
+    return meta;
   }
 
   /** @return table metadata by name */
-  TableMetadata *GetTable(const std::string &table_name) { return nullptr; }
+  TableMetadata *GetTable(const std::string &table_name) {
+    table_oid_t table_oid = names_.at(table_name);
+    return GetTable(table_oid);
+  }
 
   /** @return table metadata by oid */
-  TableMetadata *GetTable(table_oid_t table_oid) { return nullptr; }
+  TableMetadata *GetTable(table_oid_t table_oid) {
+    TableMetadata *meta = tables_.at(table_oid).get();
+    return meta;
+  }
 
  private:
-  [[maybe_unused]] BufferPoolManager *bpm_;
-  [[maybe_unused]] LockManager *lock_manager_;
-  [[maybe_unused]] LogManager *log_manager_;
+  BufferPoolManager *bpm_;
+  LockManager *lock_manager_;
+  LogManager *log_manager_;
 
   /** tables_ : table identifiers -> table metadata. Note that tables_ owns all table metadata. */
   std::unordered_map<table_oid_t, std::unique_ptr<TableMetadata>> tables_;

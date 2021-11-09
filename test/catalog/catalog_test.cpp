@@ -22,7 +22,7 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(CatalogTest, DISABLED_CreateTableTest) {
+TEST(CatalogTest, CreateTableTest) {
   auto disk_manager = new DiskManager("catalog_test.db");
   auto bpm = new BufferPoolManager(32, disk_manager);
   auto catalog = new SimpleCatalog(bpm, nullptr, nullptr);
@@ -40,8 +40,9 @@ TEST(CatalogTest, DISABLED_CreateTableTest) {
   auto *table_metadata = catalog->CreateTable(nullptr, table_name, schema);
   (void)table_metadata;
 
-  // Notice that this test case doesn't check anything! :(
-  // It is up to you to extend it
+  auto meta = catalog->GetTable(table_name);
+  EXPECT_EQ(meta->name_, table_name);
+  meta->table_->
 
   delete catalog;
   delete bpm;
