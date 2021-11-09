@@ -13,15 +13,13 @@
 #include <thread>  // NOLINT
 #include <vector>
 
-#include "common/logger.h"
 #include "container/hash/linear_probe_hash_table.h"
 #include "gtest/gtest.h"
-#include "murmur3/MurmurHash3.h"
 
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, DISABLED_SampleTest) {
+TEST(HashTableTest, SampleTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManager(50, disk_manager);
 
@@ -71,9 +69,11 @@ TEST(HashTableTest, DISABLED_SampleTest) {
   }
 
   // look for a key that does not exist
-  std::vector<int> res;
-  ht.GetValue(nullptr, 20, &res);
-  EXPECT_EQ(0, res.size());
+  {
+    std::vector<int> res;
+    ht.GetValue(nullptr, 20, &res);
+    EXPECT_EQ(0, res.size());
+  }
 
   // delete some values
   for (int i = 0; i < 5; i++) {

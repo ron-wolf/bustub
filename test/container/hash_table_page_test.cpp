@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "buffer/buffer_pool_manager.h"
-#include "common/logger.h"
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/hash_table_block_page.h"
@@ -23,7 +22,7 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(HashTablePageTest, DISABLED_HeaderPageSampleTest) {
+TEST(HashTablePageTest, HeaderPageSampleTest) {
   DiskManager *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManager(5, disk_manager);
 
@@ -42,7 +41,7 @@ TEST(HashTablePageTest, DISABLED_HeaderPageSampleTest) {
   }
 
   // add a few hypothetical block pages
-  for (unsigned i = 0; i < 10; i++) {
+  for (page_id_t i = 0; i < 10; i++) {
     header_page->AddBlockPageId(i);
     EXPECT_EQ(i + 1, header_page->NumBlocks());
   }
@@ -61,7 +60,7 @@ TEST(HashTablePageTest, DISABLED_HeaderPageSampleTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(HashTablePageTest, DISABLED_BlockPageSampleTest) {
+TEST(HashTablePageTest, BlockPageSampleTest) {
   DiskManager *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManager(5, disk_manager);
 
