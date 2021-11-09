@@ -12,14 +12,15 @@
 
 #pragma once
 
-#include <list>
-#include <mutex>  // NOLINT
-#include <unordered_map>
-
 #include "buffer/lru_replacer.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
+
+#include <cstddef>
+#include <list>
+#include <mutex>  // NOLINT
+#include <unordered_map>
 
 namespace bustub {
 
@@ -152,6 +153,10 @@ class BufferPoolManager {
    */
   void FlushAllPagesImpl();
 
+ protected:
+  Page *GetUnpinnedPage(frame_id_t *frame_id);
+
+ private:
   /** Number of pages in the buffer pool. */
   size_t pool_size_;
   /** Array of buffer pool pages. */
@@ -167,6 +172,6 @@ class BufferPoolManager {
   /** List of free pages. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
-  std::mutex latch_;
+  std::mutex mutex_;
 };
 }  // namespace bustub
