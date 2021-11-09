@@ -86,8 +86,8 @@ void DiskManager::WritePage(page_id_t page_id, const char *page_data) {
   db_io_.seekp(offset);
   db_io_.write(page_data, PAGE_SIZE);
   // check for I/O error
-  if (db_io_.bad()) {
-    LOG_DEBUG("I/O error while writing");
+  if (db_io_.fail()) {
+    LOG_DEBUG("I/O error while writing - %s logical errors had occurred", db_io_.bad() ? "one or more" : "no");
     return;
   }
   // needs to flush to keep disk file in sync
@@ -101,7 +101,7 @@ void DiskManager::ReadPage(page_id_t page_id, char *page_data) {
   int offset = page_id * PAGE_SIZE;
   // check if read beyond file length
   if (offset > GetFileSize(file_name_)) {
-    LOG_DEBUG("I/O error reading past end of file");
+    LOG_DEBUG("I/O error reading past end of file - page %2d would be at offset %5d, but file is only %5d bytes", page_id, page_id*PAGE_SIZE, GetFileSize(file_name_));
     // std::cerr << "I/O error while reading" << std::endl;
   } else {
     // set read cursor to offset
@@ -114,7 +114,7 @@ void DiskManager::ReadPage(page_id_t page_id, char *page_data) {
     // if file ends before reading PAGE_SIZE
     int read_count = db_io_.gcount();
     if (read_count < PAGE_SIZE) {
-      LOG_DEBUG("Read less than a page");
+      LOG_DEBUG("Read less than a page - read %d of %d bytes", read_count, PAGE_SIZE);
       db_io_.clear();
       // std::cerr << "Read less than a page" << std::endl;
       memset(page_data + read_count, 0, PAGE_SIZE - read_count);
