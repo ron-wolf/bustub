@@ -34,7 +34,7 @@ class LRUReplacer : public Replacer {
   explicit LRUReplacer(size_t num_pages);
 
   /**
-   * Destroys the LRUReplacer.
+   * Destroys the LRUReplacer.llll
    */
   ~LRUReplacer() override;
 
@@ -47,21 +47,18 @@ class LRUReplacer : public Replacer {
   size_t Size() override;
 
  private:
-  /** a queue of unpinned frames, with eldest at the front */
-  std::list<frame_id_t> queue_;
-  /** a map from frames to queue positions */
-  std::unordered_map<frame_id_t, decltype(queue_)::iterator> locs_;
-
-  /** a mutex for read/write access to LRU data structures */
-  std::shared_mutex rw_lk_;
-  // this will be the core of the concurrency control. it is important
-  // to have just one mutex, since this will ensure we never forget
-  // to also lock for reading when we lock for writing
+  // TODO: turn these into documentation comments
   
-  /** a lock for shared, read-only access to LRU data structures */
-  std::shared_lock<std::shared_mutex> shr_lk_;
-  /** a lock for exclusive, read/write access to LRU data structures */
-  std::unique_lock<std::shared_mutex> exc_lk_;
+  std::list<frame_id_t> frame_queue_;
+//  std::list<std::pair<frame_id_t, bool>> frame_queue_; // a list of frames, ordered by usage time
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> queue_indices_; // a map from frames to queue positions
+
+  std::mutex data_mutex_; // a mutex for read/write access to the above data structures
+                                 // this will be the core of the concurrency control. it is important
+                                 // to have just one mutex, since this will ensure we never forget
+                                 // to lock for reading when we lock for writing
+  
+  size_t max_pages_; //maximum size of the buffer pool
 };
 
 }  // namespace bustub

@@ -32,6 +32,7 @@ BufferPoolManager::~BufferPoolManager() {
 }
 
 Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
+  mutex_.lock();
   frame_id_t frame_id;
   Page *page;
   
@@ -43,7 +44,9 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
   } else {
     // Get a page we can overwrite
     page = GetUnpinnedPage(&frame_id);
-    if (page == nullptr) { return nullptr; }
+    if (page == nullptr) { 
+      mutex_.unlock();
+      return nullptr; }
     
     // Complete any pending writes on the page before wiping it
     if (page->is_dirty_) {
@@ -61,25 +64,30 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
   // Pin the page
   replacer_->Pin(frame_id);
   ++page->pin_count_;
-  
+  mutex_.unlock();
   return page;
 }
 
 bool BufferPoolManager::UnpinPageImpl(page_id_t page_id, bool is_dirty) {
+  mutex_.lock();
   // Get the page and ensure its pin count can be reduced
   auto frame_id = page_table_[page_id];
   Page *page = &pages_[frame_id];
   page->is_dirty_ |= is_dirty;
-  if (page->pin_count_-1 < 0) { return false; }
+  if (page->pin_count_-1 < 0) { 
+    mutex_.unlock();
+    return false; }
   
   // Reduce its pin count and, if non-positive, unpin it in the replacer
   if (--page->pin_count_ <= 0) {
     replacer_->Unpin(frame_id);
   }
+  mutex_.unlock();
   return true;
 }
 
 bool BufferPoolManager::FlushPageImpl(page_id_t page_id) {
+  mutex_.lock();
   // Get the page
   if (page_table_.find(page_id) == page_table_.end()) { return false; }
   auto frame_id = page_table_[page_id];
@@ -89,15 +97,18 @@ bool BufferPoolManager::FlushPageImpl(page_id_t page_id) {
   // Flush the page
   disk_manager_->WritePage(page->page_id_, page->data_);
   page->is_dirty_ = false;
-  // IDK: Do I pin the page here?
+  mutex_.unlock();
   return true;
 }
 
 Page *BufferPoolManager::NewPageImpl(page_id_t *page_id) {
+  mutex_.lock();
   // Get a page we can overwrite
   frame_id_t frame_id;
   Page *page = GetUnpinnedPage(&frame_id);
-  if (page == nullptr) { return nullptr; }
+  if (page == nullptr) { 
+    mutex_.unlock();
+    return nullptr; }
   
   // Complete any pending writes on the page before wiping it
   if (page->is_dirty_) {
@@ -108,37 +119,44 @@ Page *BufferPoolManager::NewPageImpl(page_id_t *page_id) {
   
   // Give the page a new identity, and publish it in the page table
   page->page_id_ = disk_manager_->AllocatePage();
-  disk_manager_->ReadPage(page->page_id_, page->data_);
   page_table_[page->page_id_] = frame_id;
-  
+  page->pin_count_ = 0;
+  page->is_dirty_ = false;
+  page->ResetMemory();
+
+
   // Pin the page
-  replacer_->Pin(frame_id);
   ++page->pin_count_;
-  
   *page_id = page->page_id_;
+  mutex_.unlock();
   return page;
 }
 
 bool BufferPoolManager::DeletePageImpl(page_id_t page_id) {
   // Get the page
-  if (page_table_.find(page_id) == page_table_.end()) { return true; }
+  mutex_.lock();
+  if (page_table_.find(page_id) == page_table_.end()) { 
+    mutex_.unlock();
+    return true; }
   auto frame_id = page_table_[page_id];
   Page *page = &pages_[frame_id];
-  
-  // Ensure it's unpinned
-  if (page->pin_count_ > 0) { return false; }
-  BUSTUB_ASSERT(page->pin_count_ >= 0, "A pin count must be a whole number");
-  
-  // Remove references to the page, then free it
-  (void) page_table_.erase(page_id);
+  if(page->pin_count_ != 0) {
+    mutex_.unlock();
+    return false;
+  }
+  replacer_->Pin(frame_id);
+  page_table_.erase(page_id);
+  page->page_id_ = INVALID_PAGE_ID;
+  page->ResetMemory();
+  page->is_dirty_ = false;
+  free_list_.push_front(frame_id);
   disk_manager_->DeallocatePage(page_id);
-  
-  // Add it to the free list
-  free_list_.push_back(frame_id);
+  mutex_.unlock();
   return true;
 }
 
 void BufferPoolManager::FlushAllPagesImpl() {
+  mutex_.lock();
   for (auto kv : page_table_) {
     auto [page_id, frame_id] = kv;
     Page *page = &pages_[frame_id];
@@ -149,6 +167,7 @@ void BufferPoolManager::FlushAllPagesImpl() {
       page->is_dirty_ = false;
     }
   }
+  mutex_.unlock();
 }
 
 Page *BufferPoolManager::GetUnpinnedPage(frame_id_t *frame_id) {

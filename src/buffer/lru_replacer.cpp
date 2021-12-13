@@ -12,57 +12,85 @@
 
 #include "buffer/lru_replacer.h"
 
-#include <cstdint> // intptr_t
-#include <mutex>   // scoped_lock<...MutexTypes>, defer_lock_t defer_lock
+#include "common/config.h"  // frame_id_t
+#include "common/logger.h"  // LOG_INFO(...)
+
+//#include <algorithm>    // find_if(first,last,p)
+#include <cassert>       // assert(condition)
+#include <cstddef>       // size_t
+#include <mutex>         // scoped_lock<...MutexTypes>, defer_lock_t defer_lock
+#include <shared_mutex>  // shared_lock<Mutex>
 
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages)
-  : locs_(num_pages)
-  , shr_lk_(rw_lk_, std::defer_lock)
-  , exc_lk_(rw_lk_, std::defer_lock) {}
+LRUReplacer::LRUReplacer(size_t num_pages) : max_pages_(num_pages) {}
 
-LRUReplacer::~LRUReplacer() = default;
+LRUReplacer::~LRUReplacer() {
+  frame_queue_.clear();
+  queue_indices_.clear();
+}
 
 bool LRUReplacer::Victim(frame_id_t *frame_id) {
-  frame_id_t frame_id_v;
-  {
-    std::scoped_lock lk((exc_lk_));
-    
-    if (queue_.empty()) { return false; }
-    
-    frame_id_v = queue_.front();
-    queue_.pop_front();
-    
-    (void) locs_.erase(frame_id_v);
+  data_mutex_.lock();
+  bool non_empty = !frame_queue_.empty();
+  if (non_empty) {
+    *frame_id = frame_queue_.front();
+    frame_queue_.pop_front();
+    queue_indices_.erase(*frame_id);
+
+  } else {
+    frame_id = nullptr;
+    non_empty = false;
   }
-  *frame_id = frame_id_v;
-  return true;
+  data_mutex_.unlock();
+  return non_empty;
 }
 
 void LRUReplacer::Pin(frame_id_t frame_id) {
-  std::scoped_lock lk((exc_lk_));
-  
-  if (locs_.find(frame_id) == locs_.end()) { return; }
-  
-  auto frame_pos = locs_[frame_id];
-  (void) queue_.erase(frame_pos);
-  locs_.erase(frame_id);
+  data_mutex_.lock();
+
+  decltype(queue_indices_)::const_iterator ext_pair = queue_indices_.find(frame_id);
+  if (ext_pair == queue_indices_.cend()) {
+    data_mutex_.unlock();
+
+    return;
+  }
+
+  // decltype(frame_queue_)::const_iterator frame_pos = ext_pair->second;
+  // frame_queue_.erase(frame_pos)
+  // simply just use:
+  frame_queue_.erase(ext_pair->second);
+
+  queue_indices_.erase(ext_pair);
+  data_mutex_.unlock();
 }
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
-  std::scoped_lock lk((exc_lk_));
-  
-  if (locs_.find(frame_id) != locs_.end()) {
-    (void) queue_.erase(locs_[frame_id]);
+  data_mutex_.lock();
+
+  if (static_cast<unsigned>(frame_id) >= max_pages_) {
+    data_mutex_.unlock();
+    return;
   }
-  locs_[frame_id] = queue_.insert(queue_.end(), frame_id);
+  decltype(queue_indices_)::const_iterator kv_pair = queue_indices_.find(frame_id);  // this will be
+  if (kv_pair != queue_indices_.cend()) {
+    // if the page is already in the buffer pool, do nothing
+    data_mutex_.unlock();
+    return;
+  }
+
+  frame_queue_.push_back(frame_id);
+  auto position = frame_queue_.end();
+  position--;  // position to index
+  queue_indices_[frame_id] = position;
+  data_mutex_.unlock();
 }
 
 size_t LRUReplacer::Size() {
-  std::scoped_lock lk((shr_lk_));
-  
-  return queue_.size();
+  data_mutex_.lock();
+  size_t size = frame_queue_.size();
+  data_mutex_.unlock();
+  return size;
 }
 
 }  // namespace bustub
