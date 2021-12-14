@@ -43,7 +43,7 @@ class SimpleCatalog {
    * @param log_manager the log manager in use by the system
    */
   SimpleCatalog(BufferPoolManager *bpm, LockManager *lock_manager, LogManager *log_manager)
-      : bpm_{bpm}, lock_manager_{lock_manager}, log_manager_{log_manager} {}
+      : bpm_{bpm}, lock_mgr_{lock_manager}, log_mgr_{log_manager} {}
 
   /**
    * Create a new table and return its metadata.
@@ -52,47 +52,38 @@ class SimpleCatalog {
    * @param schema the schema of the new table
    * @return a pointer to the metadata of the new table
    */
-  TableMetadata *CreateTable(Transaction *txn, const std::string &table_name, const Schema &schema) {
-    BUSTUB_ASSERT(names_.count(table_name) == 0, "Table names should be unique!");
+  TableMetadata *CreateTable(Transaction *txn, const std::string& table_name, const Schema& schema) {
+    BUSTUB_ASSERT(oid_of_name_.count(table_name) == 0, "Table names must be unique for querying to work");
     
-    page_id_t first_page_id = INVALID_PAGE_ID;
-    Page *p = bpm_->NewPage(&first_page_id, nullptr);
-    BUSTUB_ASSERT(p != nullptr, "The buffer pool should not run out of space"); // TODO: find if there is a better error here
-    
-    table_oid_t table_oid = next_table_oid_.fetch_add(1);
-    tables_.emplace(table_oid, std::make_unique<TableMetadata>(
+    // Create another table
+    table_oid_t table_oid = next_table_oid_++;
+    const auto& [kv_pair, inserted] = table_of_oid_.emplace(table_oid, std::make_unique<TableMetadata>(
       schema,
       table_name,
-      std::make_unique<TableHeap>(bpm_, lock_manager_, log_manager_, first_page_id),
+      std::make_unique<TableHeap>(bpm_, lock_mgr_, log_mgr_, txn),
       table_oid
     ));
-    names_.emplace(table_name, table_oid);
-    
-    TableMetadata *meta = GetTable(table_oid);
+    BUSTUB_ASSERT(inserted, "The next_table_oid must always be unique, and should never wrap around");
+    oid_of_name_.emplace(table_name, table_oid); // Map the table's name to its OID
+    TableMetadata *meta = kv_pair->second.get(); // Retrieve the inserted table
     return meta;
   }
 
   /** @return table metadata by name */
-  TableMetadata *GetTable(const std::string &table_name) {
-    table_oid_t table_oid = names_.at(table_name);
-    return GetTable(table_oid);
-  }
+  TableMetadata *GetTable(const std::string& table_name) { return GetTable(oid_of_name_.at(table_name)); }
 
   /** @return table metadata by oid */
-  TableMetadata *GetTable(table_oid_t table_oid) {
-    TableMetadata *meta = tables_.at(table_oid).get();
-    return meta;
-  }
+  TableMetadata *GetTable(table_oid_t table_oid) { return table_of_oid_.at(table_oid).get(); }
 
  private:
   BufferPoolManager *bpm_;
-  LockManager *lock_manager_;
-  LogManager *log_manager_;
+  LockManager *lock_mgr_;
+  LogManager *log_mgr_;
 
-  /** tables_ : table identifiers -> table metadata. Note that tables_ owns all table metadata. */
-  std::unordered_map<table_oid_t, std::unique_ptr<TableMetadata>> tables_;
-  /** names_ : table names -> table identifiers */
-  std::unordered_map<std::string, table_oid_t> names_;
+  /** table_of_oid_ : table identifiers -> table metadata. Note that table_of_oid_ owns all table metadata. */
+  std::unordered_map<table_oid_t, std::unique_ptr<TableMetadata>> table_of_oid_;
+  /** oid_of_name_ : table names -> table identifiers */
+  std::unordered_map<std::string, table_oid_t> oid_of_name_;
   /** The next table identifier to be used. */
   std::atomic<table_oid_t> next_table_oid_{0};
 };

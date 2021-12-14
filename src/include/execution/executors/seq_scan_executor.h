@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <iomanip> // std::quoted(char *)
 #include <vector>
 
 #include "common/logger.h"
@@ -33,67 +34,58 @@ class SeqScanExecutor : public AbstractExecutor {
    * @param plan the sequential scan plan to be executed
    */
   SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
-      : AbstractExecutor{exec_ctx},
-        plan_{plan},
-        tabledata_{exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())},
-        table_{tabledata_->table_.get()},
-        pred_{plan_->GetPredicate()} {
-    BUSTUB_ASSERT(plan->GetPredicate()->GetReturnType() == TypeId::BOOLEAN, "sequential scans are intended for boolean predicates only");
-    
-    /*
-     * plan :: PlanNode
-     * * predicate :: Expr
-     * * * children :: [Expr]
-     * * table_oid :: u32
-     * exec_ctx :: ExecutorContext
-     * * catalog :: Catalog
-     * * * tables :: u32 -> TableMetadata
-     * * * * schema :: Schema
-     * * * * table :: TableHeap // <--
-     * * bpm :: BufferPoolManager
-     * * * NewPage :: IO Page
-     * * * FetchPage :: i32 -> IO Page
-     * * transaction :: Transaction
-     */
-  }
+      : AbstractExecutor(exec_ctx),
+        table_data_ {exec_ctx_->GetCatalog()->GetTable(plan->GetTableOid())},
+        in_schema_ {&table_data_->schema_},
+        cur_itr_ {table_data_->table_->Begin(exec_ctx_->GetTransaction())},
+        end_itr_ {table_data_->table_->End()},
+        pred_ {plan->GetPredicate()},
+        out_schema_ {plan->OutputSchema()} {}
 
-  void Init() override {
-    itr_ = table_->Begin(exec_ctx_->GetTransaction());
-  }
+  /** initializes the sequential scan executor. */
+  void Init() override {}
 
+  /** Determines the next tuple in the table.
+   * @return true if tuple was found, false otherwise.
+   */
   bool Next(Tuple *tuple) override {
-    // Process the next tuple in the pipeline
-    Tuple *tuple_ptr = itr_.operator->();
-    Value match_bool = plan_->GetPredicate()->Evaluate(tuple_ptr, &tabledata_->schema_);
-    if (! match_bool.CheckComparable(true_bool)) {
-      LOG_ERROR("Non boolean-comparable value resulted from predicate; erroring out");
-      match_bool = match_bool.CastAs(TypeId::BOOLEAN); // this will throw an error every tme
+    if (cur_itr_ == end_itr_) {
+      // We are being called again for some reason; complain and identify table
+      // Also give output schema, to aid in finding location of error
+      std::ostringstream quoted_tabnam; // a sink for the quoted table name
+      quoted_tabnam << std::quoted(table_data_->name_); // stream the quoted table name in
+      LOG_ERROR("Iterator already reached end of table %s (oid=%u) -- %s", quoted_tabnam.str().c_str(), table_data_->oid_, out_schema_->ToString().c_str());
     }
-    itr_++;
     
-    // Return a result to the caller
-    bool match = IsTruthy(match_bool);
-    if (match) {
-      *tuple = *tuple_ptr;
+    bool found = false;
+    for (; cur_itr_ != end_itr_ && !(found); ++cur_itr_) {
+      const Tuple *cand = TupPtrOf(cur_itr_);
+      if (!pred_ || pred_->Evaluate(cand, in_schema_).GetAs<bool>()) {
+        // We have found a matching tuple!
+        // Collect all the fields into a Tuple corresponding to the output Schema
+        std::vector<Value> fields; fields.reserve( out_schema_->GetColumnCount());
+        for (const Column& out_col : out_schema_->GetColumns()) {
+          fields.push_back(out_col.GetExpr()->Evaluate(cand, out_schema_));
+        }
+        *tuple = Tuple(fields, out_schema_);
+        found = true;
+      }
     }
-    return match;
+    return found; // if true, there may be more; if false, the executor has stopped
   }
 
-  const Schema *GetOutputSchema() override { return plan_->OutputSchema(); }
+  const Schema *GetOutputSchema() override { return out_schema_; }
 
  private:
-  /** The sequential scan plan node to be executed. */
-  const SeqScanPlanNode *plan_;
+  TableMetadata *table_data_;
+  const Schema *in_schema_;
   
-  TableMetadata *tabledata_;
-  TableHeap *table_;
-  TableIterator itr_ {nullptr, RID(), nullptr};
+  TableIterator cur_itr_;
+  const TableIterator end_itr_;
+  
   const AbstractExpression *pred_;
+  const Schema *out_schema_;
   
-  static inline const Value true_bool {TypeId::BOOLEAN, true};
-  
-  static inline bool IsTruthy(Value &value) {
-    return value.CompareEquals(true_bool) == CmpBool::CmpTrue; // what a rat's nest
-  }
+  Tuple *TupPtrOf(TableIterator itr) { return itr.operator->(); }
 };
 }  // namespace bustub
