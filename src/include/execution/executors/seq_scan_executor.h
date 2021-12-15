@@ -41,7 +41,9 @@ class SeqScanExecutor : public AbstractExecutor {
       , in_schema_ {&table_data_->schema_}
       , out_schema_ {plan->OutputSchema()}
   {
-    BUSTUB_ASSERT(pred_->GetReturnType() == TypeId::BOOLEAN, "Plan predicates must return true or false");
+    if (pred_ != nullptr) {
+      BUSTUB_ASSERT(pred_->GetReturnType() == TypeId::BOOLEAN, "Plan predicates must return true or false");
+    }
   }
 
   /** initializes the sequential scan executor. */
